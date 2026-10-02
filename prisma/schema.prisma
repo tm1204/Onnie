@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VisualType {
+  TEXT
+  COLOUR
+  IMAGE
+}
+
+model AgeGroup {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  sortOrder Int      @default(0)
+  lessons   Lesson[]
+}
+
+// A numbered/named lesson ("Les 1") that groups several categories.
+model Lesson {
+  id         String     @id @default(cuid())
+  ageGroupId String
+  ageGroup   AgeGroup   @relation(fields: [ageGroupId], references: [id])
+  title      String
+  language   String     @default("af")
+  sortOrder  Int        @default(0)
+  published  Boolean    @default(false)
+  categories Category[]
+
+  @@index([ageGroupId])
+}
+
+// nommers / kleure / klanke / sigwoorde ... within a lesson.
+model Category {
+  id        String  @id @default(cuid())
+  lessonId  String
+  lesson    Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int     @default(0)
+  tiles     Tile[]
+
+  @@index([lessonId])
+}
+
+// Recursive: any tile may have child tiles (e.g. a phonics letter -> word images).
+// categoryId is stored on every tile, children included, so a category's tiles
+// can be fetched in one query.
+model Tile {
+  id           String     @id @default(cuid())
+  categoryId   String
+  category     Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       Tile?      @relation("TileChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Tile[]     @relation("TileChildren")
+  displayValue String
+  visualType   VisualType @default(TEXT)
+  visualValue  String?
+  // Optional splash colour for text tiles (colour tiles keep their colour in visualValue).
+  colour       String?
+  audioUrl     String?
+  sortOrder    Int        @default(0)
+
+  @@index([categoryId])
+  @@index([parentId])
+}
